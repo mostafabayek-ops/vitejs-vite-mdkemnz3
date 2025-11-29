@@ -255,7 +255,7 @@ export default function App() {
                               <input type="text" className="w-full border p-2 rounded text-sm" placeholder="ছবির নতুন লিংক (.jpg/.png)" value={editingImage} onChange={e=>setEditingImage(e.target.value)} />
                               
                               <div className="flex justify-end gap-2 pt-2">
-                                  <button onClick={() => handlePackageUpdate(pkgId)} className="bg-green-600 text-white py-1.5 rounded-lg text-sm font-bold">Save Changes</button>
+                                  <button onClick={() => handlePackageUpdate(pkgId)} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold">Save Changes</button>
                                   <button onClick={()=>{setEditingItemId(null); setEditingImage(''); setNewPackageName('');}} className="bg-red-400 text-white px-3 py-1.5 rounded-lg text-sm font-bold">Cancel</button>
                               </div>
                           </div>
