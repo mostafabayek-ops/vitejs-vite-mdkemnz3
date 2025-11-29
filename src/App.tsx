@@ -14,26 +14,6 @@ const TELEGRAM_CHAT_ID = "5834441670";
 const ADMIN_EMAIL = "tmmasuk247@gmail.com";
 const ADMIN_PASS = "Shukhpakhi2021@#00";
 
-const PACKAGES = [
-  { id: 'w1', name: 'উইকলি মেম্বারশিপ', price: 155, category: 'membership' },
-  { id: 'm1', name: 'মান্থলি মেম্বারশিপ', price: 770, category: 'membership' },
-  { id: 'lvl6', name: 'Level Up - Level 6', price: 40, category: 'levelup' },
-  { id: 'lvl10', name: 'Level Up - Level 10', price: 70, category: 'levelup' },
-  { id: 'lvl15', name: 'Level Up - Level 15', price: 70, category: 'levelup' },
-  { id: 'lvl20', name: 'Level Up - Level 20', price: 70, category: 'levelup' },
-  { id: 'lvl25', name: 'Level Up - Level 25', price: 70, category: 'levelup' },
-  { id: 'lvl30', name: 'Level Up - Level 30', price: 100, category: 'levelup' },
-  { id: 'd1', name: '২৫ ডায়মন্ড', price: 24, category: 'diamond' },
-  { id: 'd2', name: '৫০ ডায়মন্ড', price: 38, category: 'diamond' },
-  { id: 'd3', name: '১১৫ ডায়মন্ড', price: 80, category: 'diamond' },
-  { id: 'd4', name: '২৪০ ডায়মন্ড', price: 160, category: 'diamond' },
-  { id: 'd5', name: '৩৫৫ ডায়মন্ড', price: 245, category: 'diamond' },
-  { id: 'd6', name: '৫০৫ ডায়মন্ড', price: 350, category: 'diamond' },
-  { id: 'd7', name: '৬১০ ডায়মন্ড', price: 410, category: 'diamond' },
-  { id: 'd8', name: '৮৫০ ডায়মন্ড', price: 570, category: 'diamond' },
-  { id: 'd9', name: '১০৯০ ডায়মন্ড', price: 750, category: 'diamond' },
-];
-
 const PAYMENT_METHODS = [
   { id: 'bkash', name: 'বিকাশ', color: 'bg-pink-600', numbers: [{ label: 'Personal', number: '01845793151' }, { label: 'Merchant', number: '01700664000' }] },
   { id: 'nagad', name: 'নগদ', color: 'bg-orange-600', numbers: [{ label: 'Personal', number: '01700664000' }] },
@@ -41,8 +21,8 @@ const PAYMENT_METHODS = [
 ];
 
 export default function App() {
-  const [view, setView] = useState('home');
-  const [user, setUser] = useState(null);
+  const [view, setView] = useState('home'); 
+  const [user, setUser] = useState(null); 
   const [packages, setPackages] = useState([]);
   const [orders, setOrders] = useState([]);
   
@@ -56,6 +36,7 @@ export default function App() {
   const [trxId, setTrxId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [addAmount, setAddAmount] = useState('');
   const [addMethod, setAddMethod] = useState('');
   const [addTrx, setAddTrx] = useState('');
@@ -64,27 +45,36 @@ export default function App() {
   const [adminPassInput, setAdminPassInput] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [allOrders, setAllOrders] = useState([]);
-  const [editingPrice, setEditingPrice] = useState(null); 
-  const [newPrice, setNewPrice] = useState('');
+  const [adminTab, setAdminTab] = useState('game_orders');
+  
+  const [editingItemId, setEditingItemId] = useState(null); 
+  const [newPackageName, setNewPackageName] = useState('');
+  const [editingPrice, setEditingPrice] = useState('');
+  const [editingImage, setEditingImage] = useState('');
+  
+  const [paymentMethods, setPaymentMethods] = useState([]); 
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [newPaymentNumber, setNewPaymentNumber] = useState('');
+
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) setUser(JSON.parse(savedUser));
     fetchPackages(); 
+    fetchPaymentMethods();
   }, []);
 
-  useEffect(() => {
-    if(user) fetchMyOrders();
-  }, [user, view]);
-
-  useEffect(() => {
-    if(isAdmin) fetchAllOrders();
-  }, [isAdmin, view]);
+  useEffect(() => { if(user) fetchMyOrders(); }, [user, view]);
+  useEffect(() => { if(isAdmin) fetchAllOrders(); }, [isAdmin, view, adminTab]);
 
   const fetchPackages = async () => {
     const { data } = await supabase.from('packages').select('*').order('price', { ascending: true });
-    if (data) setPackages(data);
-    else setPackages(PACKAGES); // Fallback if DB empty
+    if(data) setPackages(data);
+  };
+
+  const fetchPaymentMethods = async () => {
+    const { data } = await supabase.from('payment_methods').select('*').order('id', { ascending: true });
+    if(data) setPaymentMethods(data);
   };
 
   const fetchMyOrders = async () => {
@@ -103,7 +93,7 @@ export default function App() {
     const newUser = { name: loginName, phone: loginPhone, balance: 0 };
     setUser(newUser);
     localStorage.setItem('user', JSON.stringify(newUser));
-    setView('home'); 
+    setView('home');
   };
 
   const handleAdminLogin = () => {
@@ -120,12 +110,39 @@ export default function App() {
       fetchAllOrders(); 
   };
 
-  const updatePackagePrice = async (id) => {
-      await supabase.from('packages').update({ price: newPrice }).eq('id', id);
-      setEditingPrice(null);
+  const handlePackageUpdate = async (pkgId) => {
+      if(!newPackageName || !editingPrice || !editingImage) {
+          alert('সব ফিল্ড পূরণ করুন');
+          return;
+      }
+
+      const updateData = {
+          name: newPackageName,
+          price: parseFloat(editingPrice),
+          image_url: editingImage
+      };
+
+      await supabase.from('packages').update(updateData).eq('id', pkgId);
+      alert("প্যাকেজ আপডেট হয়েছে!");
+      setEditingItemId(null);
       fetchPackages(); 
-      alert("দাম আপডেট হয়েছে!");
   };
+
+  const handlePaymentNumberUpdate = async (id) => {
+      if(newPaymentNumber.length < 11) return alert("সঠিক ফোন নাম্বার দিন");
+      await supabase.from('payment_methods').update({ number: newPaymentNumber }).eq('id', id);
+      setEditingPaymentId(null);
+      fetchPaymentMethods();
+      alert("পেমেন্ট নাম্বার আপডেট হয়েছে!");
+  };
+
+  const handlePaymentNumberDelete = async (id) => {
+      if(window.confirm('আপনি কি এই নাম্বারটি ডিলিট করতে চান?')) {
+          await supabase.from('payment_methods').delete().eq('id', id);
+          fetchPaymentMethods();
+      }
+  };
+
 
   const sendTelegramMsg = async (text) => {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -139,18 +156,9 @@ export default function App() {
   };
 
   const handleSubmitOrder = async () => {
-    if (!user) {
-        alert("অর্ডার কনফার্ম করতে দয়া করে আগে লগইন করুন।");
-        setView('login');
-        return;
-    }
-
+    if (!user) { alert("লগইন করুন"); setView('login'); return; }
     if (!selectedPkg || !playerId || !selectedMethod || !mobileNumber || !trxId) return alert('সব তথ্য পূরণ করুন');
-
-    if (trxId.length < 8) {
-        alert("ভুল TrxID! দয়া করে সঠিক TrxID দিন।");
-        return;
-    }
+    if (trxId.length < 8) { alert("সঠিক TrxID দিন"); return; }
 
     setIsSubmitting(true);
 
@@ -170,39 +178,29 @@ export default function App() {
         alert("সমস্যা হয়েছে!");
     } else {
         const adminLink = "https://gameshop-bd-official.netlify.app";
-        const msg = `
-🔥 *নতুন অর্ডার এসেছে!*
-------------------------------
-👤 *কাস্টমার:* ${user.name}
-📱 *ফোন:* ${user.phone}
-🎮 *প্যাকেজ:* ${selectedPkg.name}
-💰 *দাম:* ${selectedPkg.price} টাকা
-🆔 *UID:* \`${playerId}\`
-📝 *TrxID:* \`${trxId}\`
-------------------------------
-👉 [অর্ডার চেক করুন](${adminLink})
-        `;
+        const msg = `🔥 *নতুন গেম অর্ডার!*
+👤 ${user.name} (${user.phone})
+🎮 ${selectedPkg.name}
+💰 ${selectedPkg.price} TK
+🆔 \`${playerId}\`
+📝 Trx: \`${trxId}\`
+👉 [অর্ডার চেক করুন](${adminLink})`;
         await sendTelegramMsg(msg);
         setIsSubmitting(false);
-        alert("অর্ডার সফল হয়েছে! অ্যাডমিন চেক করে ডায়মন্ড পাঠাবে।");
+        alert("অর্ডার সফল হয়েছে!");
         fetchMyOrders();
         setView('history');
     }
   };
 
   const handleAddMoneyRequest = async () => {
-      if (!user) {
-        alert("ওয়ালেট ব্যবহার করতে দয়া করে লগইন করুন।");
-        setView('login');
-        return;
-      }
-
+      if (!user) { alert("লগইন করুন"); setView('login'); return; }
       if(!addAmount || !addMethod || !addTrx) return alert("সব তথ্য দিন");
       
       const { error } = await supabase.from('orders').insert([{
           customer_name: user.name,
           customer_phone: user.phone,
-          player_id: 'Wallet Add',
+          player_id: 'Wallet',
           package_name: `Add Money: ৳${addAmount}`,
           price: addAmount,
           payment_method: addMethod,
@@ -212,15 +210,11 @@ export default function App() {
 
       if (!error) {
           const adminLink = "https://gameshop-bd-official.netlify.app";
-          const msg = `
-💰 *অ্যাড মানি রিকোয়েস্ট!*
-👤 নাম: ${user.name} (${user.phone})
-💵 পরিমাণ: ${addAmount} টাকা
-💳 মেথড: ${addMethod}
-📝 TrxID: \`${addTrx}\`
-------------------------------
-👉 [চেক করুন](${adminLink})
-          `;
+          const msg = `💰 *অ্যাড মানি রিকোয়েস্ট!*
+👤 ${user.name}
+💵 ${addAmount} TK (${addMethod})
+📝 Trx: \`${addTrx}\`
+👉 [চেক করুন](${adminLink})`;
           await sendTelegramMsg(msg);
           setIsSubmitting(false);
           alert("রিকোয়েস্ট পাঠানো হয়েছে!");
@@ -231,19 +225,122 @@ export default function App() {
   };
 
   const handleNavClick = (targetView) => {
-      if (targetView === 'home') {
-          setView('home');
-      } else {
-          if (user) {
-              setView(targetView);
-          } else {
-              alert("এই অপশনটি দেখতে দয়া করে লগইন করুন।");
-              setView('login');
-          }
+      if (targetView === 'home') setView('home');
+      else {
+          if (user) setView(targetView);
+          else { alert("এই অপশনটি দেখতে দয়া করে লগইন করুন।"); setView('login'); }
       }
   };
 
-  // --- LOGIN PAGE ---
+  const getPackageImage = (pkg) => {
+      return pkg.image_url || 'https://cdn-icons-png.flaticon.com/128/6438/6438253.png';
+  };
+
+  const gameOrders = allOrders.filter(o => o.player_id !== 'Wallet');
+  const walletRequests = allOrders.filter(o => o.player_id === 'Wallet');
+
+  const PriceEditorComponent = ({ category, title, color }) => {
+    const filteredPackages = packages.filter(p => p.category === category);
+    return (
+      <div className={`bg-white p-4 rounded-xl shadow border-l-4 ${color} mb-4`}>
+          <h3 className="font-bold text-gray-700 mb-3">{title}</h3>
+          <div className="space-y-2">
+              {filteredPackages.map(pkg => (
+                  <div key={pkg.id} className="bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200">
+                      
+                      {editingItemId === pkg.id ? (
+                          <div className="space-y-2">
+                              <input type="text" className="w-full border p-2 rounded text-sm" placeholder="প্যাকেজের নতুন নাম" value={newPackageName} onChange={e => setNewPackageName(e.target.value)} />
+                              <input type="number" className="w-full border p-2 rounded text-sm" placeholder="নতুন মূল্য" value={editingPrice} onChange={e=>setEditingPrice(e.target.value)} />
+                              <input type="text" className="w-full border p-2 rounded text-sm" placeholder="ছবির নতুন লিংক (.jpg/.png)" value={editingImage} onChange={e=>setEditingImage(e.target.value)} />
+                              
+                              <div className="flex justify-end gap-2 pt-2">
+                                  <button onClick={() => handlePackageUpdate(pkg.id)} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold">Save Changes</button>
+                                  <button onClick={()=>{setEditingItemId(null); setEditingImage(''); setNewPackageName('');}} className="bg-red-400 text-white px-3 py-1.5 rounded-lg text-sm font-bold">Cancel</button>
+                              </div>
+                          </div>
+                      ) : (
+                          <>
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="font-bold text-gray-700">{pkg.name}</span>
+                                <span className="font-bold text-blue-600 text-lg">৳{pkg.price}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <img src={pkg.image_url} alt="Icon" className="w-10 h-10 object-cover rounded" />
+                                <button 
+                                    onClick={()=>{setEditingItemId(pkg.id); setNewPackageName(pkg.name); setEditingPrice(pkg.price); setEditingImage(pkg.image_url);}} 
+                                    className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-bold"
+                                >
+                                    Edit
+                                </button>
+                            </div>
+                          </>
+                      )}
+                  </div>
+              ))}
+          </div>
+      </div>
+  );
+
+  const PaymentSettingsComponent = () => (
+      <div className="bg-white p-4 rounded-xl shadow mb-4">
+          <h3 className="font-bold text-lg mb-4 border-b pb-2">💳 পেমেন্ট নাম্বার ম্যানেজমেন্ট</h3>
+          <div className="space-y-3">
+              {paymentMethods.map(method => (
+                  <div key={method.id} className="bg-gray-50 p-3 rounded-lg border">
+                      <div className="flex justify-between items-center">
+                          <span className="font-bold">{method.method_name} ({method.type_label})</span>
+                      </div>
+                      
+                      {editingPaymentId === method.id ? (
+                          <div className="mt-2 space-y-2">
+                              <input type="tel" className="w-full border p-2 rounded" placeholder="নতুন নাম্বার" value={newPaymentNumber} onChange={e => setNewPaymentNumber(e.target.value)} />
+                              <div className="flex justify-end gap-2 pt-2">
+                                <button onClick={() => handlePaymentNumberUpdate(method.id)} className="bg-green-600 text-white py-1 rounded-lg text-sm flex-1">Save</button>
+                                <button onClick={() => handlePaymentNumberDelete(method.id)} className="bg-red-600 text-white py-1 rounded-lg text-sm flex-1">Delete</button>
+                                <button onClick={() => setEditingPaymentId(null)} className="bg-gray-400 text-white py-1 rounded-lg text-sm flex-1">Cancel</button>
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="flex justify-between items-center mt-2">
+                              <span className="font-mono text-xl text-blue-700">{method.number}</span>
+                              <button 
+                                onClick={() => {setEditingPaymentId(method.id); setNewPaymentNumber(method.number);}}
+                                className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold"
+                              >
+                                Edit / Delete
+                              </button>
+                          </div>
+                      )}
+                  </div>
+              ))}
+          </div>
+      </div>
+  );
+
+  const OrderItem = ({ order }) => (
+      <div className={`bg-white p-4 rounded-xl shadow border-l-4 ${order.player_id === 'Wallet' ? 'border-green-500' : 'border-blue-500'} animate-fade-in`}>
+          <div className="flex justify-between font-bold border-b pb-2 mb-2">
+              <span className="text-gray-700">#{order.id} - {order.package_name}</span>
+              <span className={`px-2 py-0.5 rounded text-xs ${order.status==='Success'?'bg-green-100 text-green-700': order.status==='Pending'?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-700'}`}>{order.status}</span>
+          </div>
+          <div className="text-sm text-gray-600 space-y-1">
+              <div className="flex items-center gap-2">👤 {order.customer_name} ({order.customer_phone})</div>
+              <div className="bg-gray-50 p-2 rounded border border-gray-100 mt-1">
+                  {order.player_id !== 'Wallet' && <div className="flex justify-between"><span>UID:</span> <span className="font-mono font-bold select-all">{order.player_id}</span></div>}
+                  <div className="flex justify-between"><span>TrxID:</span> <span className="font-mono font-bold text-blue-600 select-all">{order.trx_id}</span></div>
+                  <div className="flex justify-between text-xs text-gray-400 mt-1"><span>{order.payment_method}</span> <span>Amount: ৳{order.price}</span></div>
+              </div>
+          </div>
+          {order.status === 'Pending' && (
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                  <button onClick={()=>updateStatus(order.id, 'Success')} className="bg-green-600 text-white py-2 rounded-lg text-sm font-bold transition">Confirm ✅</button>
+                  <button onClick={()=>updateStatus(order.id, 'Rejected')} className="bg-red-100 hover:bg-red-200 text-red-600 py-2 rounded-lg text-sm font-bold transition">Reject ❌</button>
+              </div>
+          )}
+      </div>
+  );
+
   if (view === 'login') {
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
@@ -260,10 +357,9 @@ export default function App() {
     )
   }
 
-  // --- ADMIN LOGIN ---
   if (view === 'admin' && !isAdmin) {
       return (
-          <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-sans">
+          <div className="min-h-screen bg-gray-100 p-4 font-sans">
               <div className="bg-white p-6 rounded shadow-lg w-full max-w-sm">
                   <h2 className="text-xl font-bold mb-4 text-center">অ্যাডমিন লগইন</h2>
                   <input type="email" value={adminEmailInput} onChange={e=>setAdminEmailInput(e.target.value)} placeholder="Email" className="w-full border p-2 mb-3 rounded"/>
@@ -275,73 +371,54 @@ export default function App() {
       )
   }
 
-  // --- ADMIN DASHBOARD ---
   if (view === 'admin_dashboard' && isAdmin) {
       return (
           <div className="min-h-screen bg-gray-100 p-4 font-sans pb-20">
-              <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold">অ্যাডমিন প্যানেল</h2>
-                  <button onClick={()=>{setIsAdmin(false); setView('home')}} className="bg-red-500 text-white px-3 py-1 rounded text-sm font-bold">লগআউট</button>
+              <div className="flex justify-between items-center mb-4 bg-white p-4 rounded-xl shadow-sm">
+                  <h2 className="text-xl font-bold text-slate-800">অ্যাডমিন ড্যাশবোর্ড</h2>
+                  <button onClick={()=>{setIsAdmin(false); setView('home')}} className="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-sm font-bold">লগআউট</button>
               </div>
 
-              {/* Price Management */}
-              <div className="bg-white p-4 rounded shadow mb-6">
-                  <h3 className="font-bold text-lg mb-4 border-b pb-2">💎 দাম পরিবর্তন করুন</h3>
-                  <div className="space-y-2">
-                      {packages.map(pkg => (
-                          <div key={pkg.id} className="flex justify-between items-center bg-gray-50 p-2 rounded border">
-                              <span className="text-sm font-medium">{pkg.name}</span>
-                              <div className="flex items-center gap-2">
-                                  {editingPrice === pkg.id ? (
-                                      <>
-                                          <input type="number" className="w-20 border p-1 rounded" value={newPrice} onChange={e=>setNewPrice(e.target.value)} />
-                                          <button onClick={()=>updatePackagePrice(pkg.id)} className="bg-green-500 text-white px-2 py-1 rounded text-xs">Save</button>
-                                          <button onClick={()=>setEditingPrice(null)} className="bg-gray-400 text-white px-2 py-1 rounded text-xs">X</button>
-                                      </>
-                                  ) : (
-                                      <>
-                                          <span className="font-bold text-blue-600">৳{pkg.price}</span>
-                                          <button onClick={()=>{setEditingPrice(pkg.id); setNewPrice(pkg.price)}} className="bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs">Edit</button>
-                                      </>
-                                  )}
-                              </div>
-                          </div>
-                      ))}
+              <div className="flex p-1 bg-white rounded-xl shadow-sm mb-6 overflow-x-auto">
+                  <button onClick={()=>setAdminTab('game_orders')} className={`flex-1 py-2 px-2 rounded-lg font-bold text-xs sm:text-sm whitespace-nowrap transition-all ${adminTab==='game_orders' ? 'bg-blue-600 text-white shadow' : 'text-gray-500'}`}>🎮 গেম অর্ডার ({gameOrders.filter(o=>o.status==='Pending').length})</button>
+                  <button onClick={()=>setAdminTab('wallet_requests')} className={`flex-1 py-2 px-2 rounded-lg font-bold text-xs sm:text-sm whitespace-nowrap transition-all ${adminTab==='wallet_requests' ? 'bg-green-600 text-white shadow' : 'text-gray-500'}`}>💰 অ্যাড মানি ({walletRequests.filter(o=>o.status==='Pending').length})</button>
+                  <button onClick={()=>setAdminTab('prices')} className={`flex-1 py-2 px-2 rounded-lg font-bold text-xs sm:text-sm whitespace-nowrap transition-all ${adminTab==='prices' ? 'bg-purple-600 text-white shadow' : 'text-gray-500'}`}>ডায়মন্ড সেটিংস</button>
+                  <button onClick={()=>setAdminTab('payment_settings')} className={`flex-1 py-2 px-2 rounded-lg font-bold text-xs sm:text-sm whitespace-nowrap transition-all ${adminTab==='payment_settings' ? 'bg-red-600 text-white shadow' : 'text-gray-500'}`}>💳 পেমেন্ট সেটিংস</button>
+              </div>
+
+              {adminTab === 'prices' && (
+                  <div className="max-w-2xl mx-auto animate-fade-in">
+                      <PriceEditorComponent category="levelup" title="🔥 লেভেল আপ পাস" color="border-purple-500" />
+                      <PriceEditorComponent category="membership" title="👑 মেম্বারশিপ" color="border-yellow-500" />
+                      <PriceEditorComponent category="diamond" title="💎 রেগুলার ডায়মন্ড" color="border-blue-500" />
                   </div>
-              </div>
+              )}
 
-              <h3 className="font-bold text-lg mb-2">📋 অর্ডার লিস্ট</h3>
-              <div className="space-y-4">
-                  {allOrders.map(order => (
-                      <div key={order.id} className="bg-white p-4 rounded shadow border-l-4 border-blue-500">
-                          <div className="flex justify-between font-bold">
-                              <span>#{order.id} - {order.package_name}</span>
-                              <span className={`px-2 rounded text-xs ${order.status==='Success'?'bg-green-100 text-green-700': order.status==='Pending'?'bg-yellow-100 text-yellow-700':'bg-red-100'}`}>{order.status}</span>
-                          </div>
-                          <div className="text-sm text-gray-600 mt-2 grid grid-cols-1 gap-1">
-                              <div>👤 {order.customer_name} ({order.customer_phone})</div>
-                              <div>🆔 {order.player_id}</div>
-                              <div>💰 ৳{order.price} ({order.payment_method})</div>
-                              <div>📝 {order.trx_id}</div>
-                          </div>
-                          {order.status === 'Pending' && (
-                              <div className="mt-3 flex gap-2">
-                                  <button onClick={()=>updateStatus(order.id, 'Success')} className="bg-green-600 text-white px-4 py-1 rounded text-sm font-bold">Confirm</button>
-                                  <button onClick={()=>updateStatus(order.id, 'Rejected')} className="bg-red-600 text-white px-4 py-1 rounded text-sm font-bold">Reject</button>
-                              </div>
-                          )}
-                      </div>
-                  ))}
-              </div>
+              {adminTab === 'payment_settings' && (
+                  <div className="max-w-2xl mx-auto animate-fade-in">
+                      <PaymentSettingsComponent />
+                  </div>
+              )}
+              
+              {adminTab === 'game_orders' && (
+                  <div className="space-y-4">
+                      {gameOrders.length === 0 && <p className="text-center text-gray-500">কোনো গেম অর্ডার নেই</p>}
+                      {gameOrders.map(order => <OrderItem key={order.id} order={order} />)}
+                  </div>
+              )}
+
+              {adminTab === 'wallet_requests' && (
+                  <div className="space-y-4">
+                      {walletRequests.length === 0 && <p className="text-center text-gray-500">কোনো অ্যাড মানি রিকোয়েস্ট নেই</p>}
+                      {walletRequests.map(order => <OrderItem key={order.id} order={order} />)}
+                  </div>
+              )}
           </div>
       )
   }
 
-  // --- MAIN APP ---
   return (
     <div className="bg-slate-50 min-h-screen font-sans pb-20">
-      
-      {/* HEADER */}
       <div className="bg-white shadow px-4 py-3 flex justify-between items-center sticky top-0 z-50">
           <div className="font-bold text-xl text-blue-700">GameShop BD</div>
           <div className="flex items-center gap-3">
@@ -361,51 +438,64 @@ export default function App() {
                   <p className="text-sm opacity-90">Supabase + Telegram Powered</p>
               </div>
 
-              {/* ALL PACKAGES SECTIONS (Level Up, Membership, Diamond) */}
-              <div className="space-y-6">
-                  {/* LEVEL UP */}
-                  <div className="bg-white rounded-2xl shadow p-5 border-l-4 border-purple-500">
-                    <h3 className="font-bold mb-4 text-purple-700">🔥 লেভেল আপ পাস</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                        {packages.filter(p => p.category === 'levelup').map((pkg) => (
-                            <div key={pkg.id} onClick={() => setSelectedPkg(pkg)} className={`p-3 rounded-xl border cursor-pointer text-center ${selectedPkg?.id === pkg.id ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-500' : 'hover:shadow-sm'}`}>
-                                <div className="font-bold text-sm text-gray-700">{pkg.name}</div>
-                                <div className="text-purple-600 font-bold">৳ {pkg.price}</div>
-                            </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  {/* MEMBERSHIP */}
-                  <div className="bg-white rounded-2xl shadow p-5 border-l-4 border-yellow-500">
-                    <h3 className="font-bold mb-4 text-yellow-700">👑 মেম্বারশিপ</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                        {packages.filter(p => p.category === 'membership').map((pkg) => (
-                            <div key={pkg.id} onClick={() => setSelectedPkg(pkg)} className={`p-3 rounded-xl border cursor-pointer text-center ${selectedPkg?.id === pkg.id ? 'bg-yellow-50 border-yellow-500 ring-1 ring-yellow-500' : 'hover:shadow-sm'}`}>
-                                <div className="font-bold text-sm text-gray-700">{pkg.name}</div>
-                                <div className="text-yellow-600 font-bold">৳ {pkg.price}</div>
-                            </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  {/* DIAMOND */}
-                  <div className="bg-white rounded-2xl shadow p-5 border-l-4 border-blue-500">
-                    <h3 className="font-bold mb-4 text-blue-700">💎 রেগুলার ডায়মন্ড</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {packages.filter(p => p.category === 'diamond').map((pkg) => (
-                            <div key={pkg.id} onClick={() => setSelectedPkg(pkg)} className={`p-3 rounded-xl border cursor-pointer text-center ${selectedPkg?.id === pkg.id ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500' : 'hover:shadow-sm'}`}>
-                                <div className="font-bold text-sm text-gray-700">{pkg.name}</div>
-                                <div className="text-blue-600 font-bold">৳ {pkg.price}</div>
-                            </div>
-                        ))}
-                    </div>
-                  </div>
+              {/* LEVEL UP PASS */}
+              <div 
+                className="bg-white rounded-xl p-4 shadow-lg mb-6 cursor-pointer border border-purple-200 text-center hover:shadow-xl transition"
+                onClick={() => setShowLevelUpModal(true)}
+              >
+                  <img src={packages.filter(p => p.category === 'levelup')[0]?.image_url} alt="Level Up" className="w-full h-32 object-cover rounded-lg mb-2" />
+                  <h2 className="text-xl font-bold text-purple-700">লেভেল আপ পাস</h2>
+                  <p className="text-xs text-gray-500">প্যাকেজ দেখতে ক্লিক করুন</p>
               </div>
 
-              {/* ORDER FORM */}
+              {showLevelUpModal && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                      <div className="bg-white rounded-2xl p-5 w-full max-w-sm animate-fade-in relative">
+                          <button onClick={() => setShowLevelUpModal(false)} className="absolute top-3 right-4 text-2xl font-bold text-gray-500">×</button>
+                          <h3 className="text-xl font-bold mb-4 text-purple-700 text-center">লেভেল আপ পাস</h3>
+                          <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
+                              {packages.filter(p => p.category === 'levelup').map((pkg) => (
+                                  <div key={pkg.id} onClick={() => { setSelectedPkg(pkg); setShowLevelUpModal(false); }} className="p-3 rounded-xl border border-purple-200 cursor-pointer text-center hover:bg-purple-50">
+                                      <div className="font-bold text-sm text-gray-700">{pkg.name}</div>
+                                      <div className="text-purple-600 font-bold">৳ {pkg.price}</div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              {/* MEMBERSHIP SECTION */}
+              <div className="bg-white rounded-2xl shadow p-5 mb-5 border-l-4 border-yellow-500">
+                <h3 className="font-bold mb-4 text-yellow-700 flex items-center gap-2">👑 মেম্বারশিপ</h3>
+                <div className="grid grid-cols-2 gap-3">
+                    {packages.filter(p => p.category === 'membership').map((pkg) => (
+                        <div key={pkg.id} onClick={() => setSelectedPkg(pkg)} className={`p-3 rounded-xl border cursor-pointer text-center ${selectedPkg?.id === pkg.id ? 'bg-yellow-50 border-yellow-500 ring-1 ring-yellow-500' : 'hover:shadow-sm'}`}>
+                            <img src={pkg.image_url} className="w-full h-24 object-cover rounded mb-2"/>
+                            <div className="font-bold text-sm text-gray-700">{pkg.name}</div>
+                            <div className="text-yellow-600 font-bold">৳ {pkg.price}</div>
+                        </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* DIAMONDS SECTION */}
+              <div className="bg-white rounded-2xl shadow p-5 mb-5 border-l-4 border-blue-500">
+                <h3 className="font-bold mb-4 text-blue-700">💎 রেগুলার ডায়মন্ড</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {packages.filter(p => p.category === 'diamond').map((pkg) => (
+                        <div key={pkg.id} onClick={() => setSelectedPkg(pkg)} className={`p-3 rounded-xl border cursor-pointer text-center ${selectedPkg?.id === pkg.id ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500' : 'hover:shadow-sm'}`}>
+                            <img src={pkg.image_url} className="w-10 h-10 mx-auto mb-1"/>
+                            <div className="font-bold text-sm text-gray-700">{pkg.name}</div>
+                            <div className="text-blue-600 font-bold">৳ {pkg.price}</div>
+                        </div>
+                    ))}
+                </div>
+              </div>
+
               <div className="bg-white rounded-2xl shadow p-5 mt-6 space-y-4">
                   <h3 className="font-bold border-l-4 border-blue-600 pl-3">অর্ডার ইনফরমেশন</h3>
+                  {selectedPkg && <div className="bg-blue-50 p-3 rounded-lg text-center text-blue-800 font-bold mb-2">প্যাকেজ: {selectedPkg.name} (৳ {selectedPkg.price})</div>}
                   <input type="text" value={playerId} onChange={e=>setPlayerId(e.target.value)} placeholder="প্লেয়ার আইডি (UID)" className="w-full border p-3 rounded-lg bg-slate-50"/>
                   
                   <div className="grid grid-cols-3 gap-2">
@@ -417,10 +507,8 @@ export default function App() {
                   {selectedMethod && (
                       <div className="bg-slate-100 p-3 rounded-lg text-sm">
                            <p className="font-bold text-center mb-2">টাকা পাঠানোর নাম্বার:</p>
-                           {PAYMENT_METHODS.find(pm=>pm.id===selectedMethod).numbers.map((n,i)=>(
-                              <div key={i} className="flex justify-between bg-white p-2 rounded mb-1 border">
-                                  <span>{n.number} ({n.label})</span>
-                              </div>
+                           {paymentMethods.filter(m=>m.method_name.toLowerCase() === selectedMethod).map((n,i)=>(
+                              <div key={i} className="flex justify-between bg-white p-2 rounded mb-1 border"><span>{n.number} ({n.type_label})</span></div>
                           ))}
                       </div>
                   )}
@@ -435,24 +523,11 @@ export default function App() {
           </div>
       )}
 
-      {/* History and Wallet Views... */}
       {view === 'history' && (
           <div className="max-w-md mx-auto px-4 py-6">
               <h2 className="text-xl font-bold mb-4">অর্ডার হিস্ট্রি</h2>
               <div className="space-y-3">
-                  {orders.map((order) => (
-                      <div key={order.id} className="bg-white p-4 rounded-xl shadow border-l-4 border-yellow-400">
-                          <div className="flex justify-between font-bold text-slate-800">
-                              <span>{order.package_name}</span>
-                              <span className={`px-2 rounded text-xs ${order.status==='Success'?'bg-green-100 text-green-700': order.status==='Pending'?'bg-yellow-100 text-yellow-700':'bg-red-100'}`}>{order.status}</span>
-                          </div>
-                          <div className="flex justify-between text-sm text-gray-500 mt-1">
-                              <span>ID: {order.player_id}</span>
-                              <span>৳ {order.price}</span>
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">TrxID: {order.trx_id}</div>
-                      </div>
-                  ))}
+                  {orders.map((order) => <OrderItem key={order.id} order={order} />)}
               </div>
           </div>
       )}
@@ -463,7 +538,7 @@ export default function App() {
               <div className="bg-white p-5 rounded-2xl shadow space-y-4">
                   <div className="bg-blue-50 p-4 rounded-xl text-center mb-4">
                       <p className="text-sm text-gray-600">আপনার বর্তমান ব্যালেন্স</p>
-                      <h3 className="text-2xl font-bold text-blue-600">৳ 0.00</h3>
+                      <h3 className="2xl font-bold text-blue-600">৳ 0.00</h3>
                   </div>
                   <input type="number" value={addAmount} onChange={e=>setAddAmount(e.target.value)} placeholder="টাকার পরিমাণ (যেমন: 100)" className="w-full border p-3 rounded-lg"/>
                   <select value={addMethod} onChange={e=>setAddMethod(e.target.value)} className="w-full border p-3 rounded-lg bg-white">
@@ -476,15 +551,13 @@ export default function App() {
                   {addMethod && (
                        <div className="bg-slate-100 p-3 rounded-lg text-sm">
                            <p className="font-bold text-center mb-2">টাকা পাঠানোর নাম্বার:</p>
-                           {PAYMENT_METHODS.find(pm=>pm.name=== (addMethod==='Bkash'?'বিকাশ': addMethod==='Nagad'?'নগদ':'রকেট') )?.numbers.map((n,i)=>(
-                              <div key={i} className="flex justify-between bg-white p-2 rounded mb-1 border">
-                                  <span>{n.number}</span>
-                              </div>
+                           {paymentMethods.filter(m=>m.method_name.toLowerCase() === addMethod.toLowerCase()).map((n,i)=>(
+                              <div key={i} className="flex justify-between bg-white p-2 rounded mb-1 border"><span>{n.number}</span></div>
                           ))}
                        </div>
                   )}
 
-                  <input type="text" value={addTrx} onChange={e=>setAddTrx(e.target.value)} placeholder="TrxID (৮+ সংখ্যা)" className="w-full border p-3 rounded-lg uppercase"/>
+                  <input type="text" value={addTrx} onChange={e=>setTrxId(e.target.value)} placeholder="TrxID (৮+ সংখ্যা)" className="w-full border p-3 rounded-lg uppercase"/>
                   <button onClick={handleAddMoneyRequest} disabled={isSubmitting} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold">
                       {isSubmitting ? 'পাঠানো হচ্ছে...' : 'রিকোয়েস্ট পাঠান'}
                   </button>
