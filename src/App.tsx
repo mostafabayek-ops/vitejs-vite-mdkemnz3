@@ -47,15 +47,6 @@ export default function App() {
   const [allOrders, setAllOrders] = useState([]);
   const [adminTab, setAdminTab] = useState('game_orders');
   
-  const [editingItemId, setEditingItemId] = useState(null); 
-  const [newPackageName, setNewPackageName] = useState('');
-  const [editingPrice, setEditingPrice] = useState('');
-  const [editingImage, setEditingImage] = useState('');
-  
-  const [paymentMethods, setPaymentMethods] = useState([]); 
-  const [editingPaymentId, setEditingPaymentId] = useState(null);
-  const [newPaymentNumber, setNewPaymentNumber] = useState('');
-
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -64,8 +55,7 @@ export default function App() {
     fetchPaymentMethods();
   }, []);
 
-  useEffect(() => { if(user) fetchMyOrders(); }, [user, view]);
-  useEffect(() => { if(isAdmin) fetchAllOrders(); }, [isAdmin, view, adminTab]);
+  useEffect(() => { if(user || isAdmin) fetchAllOrders(); }, [user, isAdmin, view, adminTab]);
 
   const fetchPackages = async () => {
     const { data } = await supabase.from('packages').select('*').order('price', { ascending: true });
@@ -108,39 +98,6 @@ export default function App() {
   const updateStatus = async (id, newStatus) => {
       await supabase.from('orders').update({ status: newStatus }).eq('id', id);
       fetchAllOrders(); 
-  };
-
-  const handlePackageUpdate = async (pkgId) => {
-      if(!newPackageName || !editingPrice || !editingImage) {
-          alert('সব ফিল্ড পূরণ করুন');
-          return;
-      }
-
-      const updateData = {
-          name: newPackageName,
-          price: parseFloat(editingPrice),
-          image_url: editingImage
-      };
-
-      await supabase.from('packages').update(updateData).eq('id', pkgId);
-      alert("প্যাকেজ আপডেট হয়েছে!");
-      setEditingItemId(null);
-      fetchPackages(); 
-  };
-
-  const handlePaymentNumberUpdate = async (id) => {
-      if(newPaymentNumber.length < 11) return alert("সঠিক ফোন নাম্বার দিন");
-      await supabase.from('payment_methods').update({ number: newPaymentNumber }).eq('id', id);
-      setEditingPaymentId(null);
-      fetchPaymentMethods();
-      alert("পেমেন্ট নাম্বার আপডেট হয়েছে!");
-  };
-
-  const handlePaymentNumberDelete = async (id) => {
-      if(window.confirm('আপনি কি এই নাম্বারটি ডিলিট করতে চান?')) {
-          await supabase.from('payment_methods').delete().eq('id', id);
-          fetchPaymentMethods();
-      }
   };
 
 
@@ -232,91 +189,9 @@ export default function App() {
       }
   };
 
-  const getPackageImage = (pkg) => {
-      return pkg.image_url || 'https://cdn-icons-png.flaticon.com/128/6438/6438253.png';
-  };
-
   const gameOrders = allOrders.filter(o => o.player_id !== 'Wallet');
   const walletRequests = allOrders.filter(o => o.player_id === 'Wallet');
 
-  const PriceEditorComponent = ({ category, title, color }) => {
-    const filteredPackages = packages.filter(p => p.category === category);
-    return (
-      <div className={`bg-white p-4 rounded-xl shadow border-l-4 ${color} mb-4`}>
-          <h3 className="font-bold text-gray-700 mb-3">{title}</h3>
-          <div className="space-y-2">
-              {filteredPackages.map(pkg => (
-                  <div key={pkg.id} className="bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200">
-                      
-                      {editingItemId === pkg.id ? (
-                          <div className="space-y-2">
-                              <input type="text" className="w-full border p-2 rounded text-sm" placeholder="প্যাকেজের নতুন নাম" value={newPackageName} onChange={e => setNewPackageName(e.target.value)} />
-                              <input type="number" className="w-full border p-2 rounded text-sm" placeholder="নতুন মূল্য" value={editingPrice} onChange={e=>setEditingPrice(e.target.value)} />
-                              <input type="text" className="w-full border p-2 rounded text-sm" placeholder="ছবির নতুন লিংক (.jpg/.png)" value={editingImage} onChange={e=>setEditingImage(e.target.value)} />
-                              
-                              <div className="flex justify-end gap-2 pt-2">
-                                  <button onClick={() => handlePackageUpdate(pkg.id)} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold">Save Changes</button>
-                                  <button onClick={()=>{setEditingItemId(null); setEditingImage(''); setNewPackageName('');}} className="bg-red-400 text-white px-3 py-1.5 rounded-lg text-sm font-bold">Cancel</button>
-                              </div>
-                          </div>
-                      ) : (
-                          <>
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="font-bold text-gray-700">{pkg.name}</span>
-                                <span className="font-bold text-blue-600 text-lg">৳{pkg.price}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <img src={pkg.image_url} alt="Icon" className="w-10 h-10 object-cover rounded" />
-                                <button 
-                                    onClick={()=>{setEditingItemId(pkg.id); setNewPackageName(pkg.name); setEditingPrice(pkg.price); setEditingImage(pkg.image_url);}} 
-                                    className="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-bold"
-                                >
-                                    Edit
-                                </button>
-                            </div>
-                          </>
-                      )}
-                  </div>
-              ))}
-          </div>
-      </div>
-  );
-
-  const PaymentSettingsComponent = () => (
-      <div className="bg-white p-4 rounded-xl shadow mb-4">
-          <h3 className="font-bold text-lg mb-4 border-b pb-2">💳 পেমেন্ট নাম্বার ম্যানেজমেন্ট</h3>
-          <div className="space-y-3">
-              {paymentMethods.map(method => (
-                  <div key={method.id} className="bg-gray-50 p-3 rounded-lg border">
-                      <div className="flex justify-between items-center">
-                          <span className="font-bold">{method.method_name} ({method.type_label})</span>
-                      </div>
-                      
-                      {editingPaymentId === method.id ? (
-                          <div className="mt-2 space-y-2">
-                              <input type="tel" className="w-full border p-2 rounded" placeholder="নতুন নাম্বার" value={newPaymentNumber} onChange={e => setNewPaymentNumber(e.target.value)} />
-                              <div className="flex justify-end gap-2 pt-2">
-                                <button onClick={() => handlePaymentNumberUpdate(method.id)} className="bg-green-600 text-white py-1 rounded-lg text-sm flex-1">Save</button>
-                                <button onClick={() => handlePaymentNumberDelete(method.id)} className="bg-red-600 text-white py-1 rounded-lg text-sm flex-1">Delete</button>
-                                <button onClick={() => setEditingPaymentId(null)} className="bg-gray-400 text-white py-1 rounded-lg text-sm flex-1">Cancel</button>
-                              </div>
-                          </div>
-                      ) : (
-                          <div className="flex justify-between items-center mt-2">
-                              <span className="font-mono text-xl text-blue-700">{method.number}</span>
-                              <button 
-                                onClick={() => {setEditingPaymentId(method.id); setNewPaymentNumber(method.number);}}
-                                className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold"
-                              >
-                                Edit / Delete
-                              </button>
-                          </div>
-                      )}
-                  </div>
-              ))}
-          </div>
-      </div>
-  );
 
   const OrderItem = ({ order }) => (
       <div className={`bg-white p-4 rounded-xl shadow border-l-4 ${order.player_id === 'Wallet' ? 'border-green-500' : 'border-blue-500'} animate-fade-in`}>
@@ -332,9 +207,9 @@ export default function App() {
                   <div className="flex justify-between text-xs text-gray-400 mt-1"><span>{order.payment_method}</span> <span>Amount: ৳{order.price}</span></div>
               </div>
           </div>
-          {order.status === 'Pending' && (
+          {order.status === 'Pending' && isAdmin && ( // Only show buttons if isAdmin and Pending
               <div className="mt-3 grid grid-cols-2 gap-3">
-                  <button onClick={()=>updateStatus(order.id, 'Success')} className="bg-green-600 text-white py-2 rounded-lg text-sm font-bold transition">Confirm ✅</button>
+                  <button onClick={()=>updateStatus(order.id, 'Success')} className="bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg text-sm font-bold transition">Confirm ✅</button>
                   <button onClick={()=>updateStatus(order.id, 'Rejected')} className="bg-red-100 hover:bg-red-200 text-red-600 py-2 rounded-lg text-sm font-bold transition">Reject ❌</button>
               </div>
           )}
@@ -345,7 +220,7 @@ export default function App() {
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm">
-                <h2 className="text-2xl font-bold text-center mb-6 text-slate-800">লগইন করুন</h2>
+                <h2 className="2xl font-bold text-center mb-6 text-slate-800">লগইন করুন</h2>
                 <div className="space-y-4">
                     <input type="text" value={loginName} onChange={e=>setLoginName(e.target.value)} className="w-full border p-3 rounded-lg" placeholder="আপনার নাম"/>
                     <input type="tel" value={loginPhone} onChange={e=>setLoginPhone(e.target.value)} className="w-full border p-3 rounded-lg" placeholder="মোবাইল নাম্বার"/>
@@ -379,26 +254,11 @@ export default function App() {
                   <button onClick={()=>{setIsAdmin(false); setView('home')}} className="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-sm font-bold">লগআউট</button>
               </div>
 
+              {/* Simplified Tabs (No Price Edit) */}
               <div className="flex p-1 bg-white rounded-xl shadow-sm mb-6 overflow-x-auto">
                   <button onClick={()=>setAdminTab('game_orders')} className={`flex-1 py-2 px-2 rounded-lg font-bold text-xs sm:text-sm whitespace-nowrap transition-all ${adminTab==='game_orders' ? 'bg-blue-600 text-white shadow' : 'text-gray-500'}`}>🎮 গেম অর্ডার ({gameOrders.filter(o=>o.status==='Pending').length})</button>
                   <button onClick={()=>setAdminTab('wallet_requests')} className={`flex-1 py-2 px-2 rounded-lg font-bold text-xs sm:text-sm whitespace-nowrap transition-all ${adminTab==='wallet_requests' ? 'bg-green-600 text-white shadow' : 'text-gray-500'}`}>💰 অ্যাড মানি ({walletRequests.filter(o=>o.status==='Pending').length})</button>
-                  <button onClick={()=>setAdminTab('prices')} className={`flex-1 py-2 px-2 rounded-lg font-bold text-xs sm:text-sm whitespace-nowrap transition-all ${adminTab==='prices' ? 'bg-purple-600 text-white shadow' : 'text-gray-500'}`}>ডায়মন্ড সেটিংস</button>
-                  <button onClick={()=>setAdminTab('payment_settings')} className={`flex-1 py-2 px-2 rounded-lg font-bold text-xs sm:text-sm whitespace-nowrap transition-all ${adminTab==='payment_settings' ? 'bg-red-600 text-white shadow' : 'text-gray-500'}`}>💳 পেমেন্ট সেটিংস</button>
               </div>
-
-              {adminTab === 'prices' && (
-                  <div className="max-w-2xl mx-auto animate-fade-in">
-                      <PriceEditorComponent category="levelup" title="🔥 লেভেল আপ পাস" color="border-purple-500" />
-                      <PriceEditorComponent category="membership" title="👑 মেম্বারশিপ" color="border-yellow-500" />
-                      <PriceEditorComponent category="diamond" title="💎 রেগুলার ডায়মন্ড" color="border-blue-500" />
-                  </div>
-              )}
-
-              {adminTab === 'payment_settings' && (
-                  <div className="max-w-2xl mx-auto animate-fade-in">
-                      <PaymentSettingsComponent />
-                  </div>
-              )}
               
               {adminTab === 'game_orders' && (
                   <div className="space-y-4">
