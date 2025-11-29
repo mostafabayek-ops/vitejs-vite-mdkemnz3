@@ -15,9 +15,9 @@ const ADMIN_EMAIL = "tmmasuk247@gmail.com";
 const ADMIN_PASS = "Shukhpakhi2021@#00";
 
 const PAYMENT_METHODS = [
-  { id: 'bkash', name: 'বিকাশ', color: 'bg-pink-600', numbers: [{ label: 'Personal', number: '01845793151' }, { label: 'Merchant', number: '01700664000' }] },
-  { id: 'nagad', name: 'নগদ', color: 'bg-orange-600', numbers: [{ label: 'Personal', number: '01700664000' }] },
-  { id: 'rocket', name: 'রকেট', color: 'bg-purple-600', numbers: [{ label: 'Personal', number: '01700664000' }] },
+  { id: 'bkash', name: 'বিকাশ', type_label: 'Personal', number: '01845793151' },
+  { id: 'nagad', name: 'নগদ', type_label: 'Personal', number: '01700664000' },
+  { id: 'rocket', name: 'রকেট', type_label: 'Personal', number: '01700664000' },
 ];
 
 export default function App() {
@@ -47,6 +47,8 @@ export default function App() {
   const [allOrders, setAllOrders] = useState([]);
   const [adminTab, setAdminTab] = useState('game_orders');
   
+  const [paymentMethods, setPaymentMethods] = useState([]); 
+
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -298,12 +300,12 @@ export default function App() {
                   <p className="text-sm opacity-90">Supabase + Telegram Powered</p>
               </div>
 
-              {/* LEVEL UP PASS */}
+              {/* Level Up Pass */}
               <div 
                 className="bg-white rounded-xl p-4 shadow-lg mb-6 cursor-pointer border border-purple-200 text-center hover:shadow-xl transition"
                 onClick={() => setShowLevelUpModal(true)}
               >
-                  <img src={packages.filter(p => p.category === 'levelup')[0]?.image_url} alt="Level Up" className="w-full h-32 object-cover rounded-lg mb-2" />
+                  <img src={packages.filter(p => p.category === 'levelup')[0]?.image_url || 'https://via.placeholder.com/400x200?text=Level+Up+Pass'} alt="Level Up" className="w-full h-32 object-cover rounded-lg mb-2" />
                   <h2 className="text-xl font-bold text-purple-700">লেভেল আপ পাস</h2>
                   <p className="text-xs text-gray-500">প্যাকেজ দেখতে ক্লিক করুন</p>
               </div>
